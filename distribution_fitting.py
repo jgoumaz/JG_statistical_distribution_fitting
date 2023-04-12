@@ -1,10 +1,11 @@
-import  warnings
+import  warnings, math
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import wasserstein_distance
 from scipy import optimize
+from scipy.special import factorial, gamma
 
 
 """##############################
@@ -62,6 +63,26 @@ def normal(x, mu, sigma, A):
     :return: [ndarray] normal distribution
     '''
     return A * np.exp(-0.5*np.square((x-mu)/sigma)) / (sigma*np.sqrt(2*np.pi))
+def poisson_continuous(x, lamda):
+    '''
+    Poisson distribution in continuous form
+    Conditions: x > 0, lamda > 0
+    :param x: [ndarray or float] data
+    :param lamda: [float] parameter to optimize (lamda = mean = variance)
+    :return: [ndarray] continuous poisson distribution
+    '''
+    return lamda**x * np.exp(-lamda) / gamma(x+1) # gamma(x+1) = x!
+def binomial_continuous(x, n, p):
+    '''
+    Binomial distribution in continuous form
+    Conditions: x > 0, n > 0, p ∈ (0,1)
+    :param x: [ndarray or float] data
+    :param n: [float] total number of events to optimize
+    :param p: [float] event probability to optimize
+    :return: [ndarray] continuous binomial distribution
+    '''
+    binomial_coeff = gamma(n+1) / (gamma(x+1)*gamma(n-x+1)) # equivalent to n!/x!(n-x)!  |  because gamma(x+1) = x!
+    return binomial_coeff * (p**x) * ((1-p)**(n-x))
 
 
 """##############################
@@ -97,21 +118,26 @@ class Distribution():
         self.dist_nargs = self.dist.__code__.co_argcount - 1
         self.apply_pre_shift_and_rescale = pre_shift_and_rescale
         self.apply_post_rescale = post_rescale
-
         self.parameters = []
+        self.fit_p0 = []
+        self.fit_done = False
+
         if self.apply_pre_shift_and_rescale:
             self.func1 = lambda x, pre_shift, pre_rescaling, *args: self.dist(rescale_func(shift_func(x, pre_shift), pre_rescaling),*args)
-            self.parameters = ["pre_shift","pre_rescaling"] + self.parameters
+            self.parameters = ["pre_shift","pre_rescaling"] + self.parameters + list(self.dist.__code__.co_varnames[1:])
+            self.fit_p0 = [0, 1] + self.fit_p0 + self.dist_nargs * [1]
         else:
             self.func1 = lambda x, *args: self.dist(x,*args)
-        self.parameters = self.parameters + list(self.dist.__code__.co_varnames[1:])
+            self.parameters = self.parameters + list(self.dist.__code__.co_varnames[1:])
+            self.fit_p0 = self.fit_p0 + self.dist_nargs * [1]
+
         if self.apply_post_rescale:
             self.func = lambda x, post_rescaling, *args: rescale_func(self.func1(x,*args),post_rescaling)
             self.parameters = ["post_rescaling"] + self.parameters
+            self.fit_p0 = [1] + self.fit_p0
         else:
             self.func = self.func1
 
-        self.fit_done = False
 
     def fit(self, xdata, ydata, it=5000, p0=None):
         '''
@@ -124,13 +150,7 @@ class Distribution():
         '''
         # Initializing p0 (initial parameter guesses)
         if p0 is None:
-            p0 = []
-            if self.apply_pre_shift_and_rescale: p0 = [0, 1] + p0
-            if self.apply_post_rescale: p0 = [1] + p0
-            p0 += self.dist_nargs * [1]
-        if len(p0) == self.dist_nargs:
-            if self.apply_pre_shift_and_rescale: p0 = [0, 1] + p0
-            if self.apply_post_rescale: p0 = [1] + p0
+            p0 = self.fit_p0
         # Fitting the data and computing optimal parameters (popt)
         xdata = np.array(xdata)
         ydata = np.array(ydata)
