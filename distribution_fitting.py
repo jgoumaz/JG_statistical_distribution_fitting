@@ -71,6 +71,7 @@ def poisson_continuous(x, lamda):
     :param lamda: [float] parameter to optimize (lamda = mean = variance)
     :return: [ndarray] continuous poisson distribution
     '''
+    if lamda < 0: lamda = 0
     return lamda**x * np.exp(-lamda) / gamma(x+1) # gamma(x+1) = x!
 def binomial_continuous(x, n, p):
     '''
@@ -81,6 +82,8 @@ def binomial_continuous(x, n, p):
     :param p: [float] event probability to optimize
     :return: [ndarray] continuous binomial distribution
     '''
+    if p < 0: p = 0
+    if p > 1: p = 1
     binomial_coeff = gamma(n+1) / (gamma(x+1)*gamma(n-x+1)) # equivalent to n!/x!(n-x)!  |  because gamma(x+1) = x!
     return binomial_coeff * (p**x) * ((1-p)**(n-x))
 
@@ -231,4 +234,3 @@ def test_normal_fitting():
 
 if __name__ == '__main__':
     test_normal_fitting()
-
