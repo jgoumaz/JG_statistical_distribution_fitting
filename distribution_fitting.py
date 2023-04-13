@@ -44,15 +44,14 @@ def exponential_decay(x, a):
     :return: [ndarray] exponential decay
     '''
     return np.exp(-a*x)
-def power_law(x, a, b):
+def power_law(x, a):
     '''
     Power law function
     :param x: [ndarray or float] data
     :param a: [float] parameter to optimize
-    :param b: [float] parameter to optimize
     :return: [ndarray] power law
     '''
-    return a*(x**b)
+    return x**a
 def normal(x, mu, sigma, A):
     '''
     Normal distribution
@@ -86,6 +85,30 @@ def binomial_continuous(x, n, p):
     if p > 1: p = 1
     binomial_coeff = gamma(n+1) / (gamma(x+1)*gamma(n-x+1)) # equivalent to n!/x!(n-x)!  |  because gamma(x+1) = x!
     return binomial_coeff * (p**x) * ((1-p)**(n-x))
+def gamma_distribution(x, k, theta):
+    '''
+    Gamma distribution
+    Conditions: x > 0, k > 0, theta > 0
+    :param x: [ndarray or float] data
+    :param k: [float] shape to optimize
+    :param theta: [float] scale to optimize
+    :return: [ndarray] gamma distribution
+    '''
+    x = np.array(x)
+    x[x<0] = 0
+    valid = 1
+    if theta <= 0:
+        valid = 0
+    return valid * x**(k-1) * np.exp(-x/theta) / (gamma(k)*(theta**k))
+def gamma_distribution_unscaled(x, k):
+    '''
+    Unscaled gamma distribution
+    Conditions: x > 0, k > 0
+    :param x: [ndarray or float] data
+    :param k: [float] shape to optimize
+    :return: [ndarray] gamma distribution
+    '''
+    return gamma_distribution(x, k, 1.0)
 
 
 """##############################
@@ -110,7 +133,7 @@ class Distribution():
     :arg self.wasserstein_distance: wasserstein distance computed as a score of the fitting [float]
     '''
 
-    def __init__(self, distribution_func, pre_shift_and_rescale=False, post_rescale=False):
+    def __init__(self, distribution_func, pre_shift_and_rescale=True, post_rescale=True):
         '''
         Constructor of the class Distribution
         :param distribution_func: distribution function [function]
@@ -234,3 +257,4 @@ def test_normal_fitting():
 
 if __name__ == '__main__':
     test_normal_fitting()
+
